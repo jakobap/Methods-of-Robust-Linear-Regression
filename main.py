@@ -142,9 +142,8 @@ class HuberRegression(RegressionFramework):
         Plots the chosen loss function
         """
         for d in [0, .5, 1, 5, 10]:
-            MSE = [self.loss_function(np.array([1]), np.array([i]), np.array([0]), d) for i in range(-5000, 5000)]
-            plt.plot(list(range(-5000, 5000)), MSE, label=f'Delta: {d}')
-
+            HUBER = [self.loss_function(np.array([1]), np.array([i]), np.array([0]), d) for i in np.linspace(-10, 10, 200)]
+            plt.plot(np.linspace(-10, 10, 200), HUBER, label=f'Delta: {d}')
         plt.title(title)
         plt.xlabel('Prediction')
         plt.ylabel('MSE')
@@ -179,17 +178,17 @@ if __name__ == '__main__':
     np.random.seed(69)
     X_train_poly, X_test_poly, y_errors_train, X_test, y_test, X = dgp()
 
-    least_squares = LeastSquares(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test)
-    least_squares.plot_loss(title='Least Squares Cost Function y = 0')
-    least_squares.fit()
-    least_squares.predict()
-    least_squares.plot_reg(title='Least Squares', x_test=X_test, x_org=X, y_org=y_errors_train)
-
-    least_squares = LeastDeviation(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test)
-    least_squares.plot_loss(title='Least Deviation Cost Function y = 0')
-    least_squares.fit()
-    least_squares.predict()
-    least_squares.plot_reg(title='Least Deviation', x_test=X_test, x_org=X, y_org=y_errors_train)
+    # least_squares = LeastSquares(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test)
+    # least_squares.plot_loss(title='Least Squares Cost Function y = 0')
+    # least_squares.fit()
+    # least_squares.predict()
+    # least_squares.plot_reg(title='Least Squares', x_test=X_test, x_org=X, y_org=y_errors_train)
+    #
+    # least_squares = LeastDeviation(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test)
+    # least_squares.plot_loss(title='Least Deviation Cost Function y = 0')
+    # least_squares.fit()
+    # least_squares.predict()
+    # least_squares.plot_reg(title='Least Deviation', x_test=X_test, x_org=X, y_org=y_errors_train)
 
     least_squares = HuberRegression(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test, delta=0.01)
     least_squares.plot_loss(title='Huber Loss Cost Function y = 0')
