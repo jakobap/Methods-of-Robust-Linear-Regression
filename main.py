@@ -34,7 +34,7 @@ def dgp(s=400):
     y_errors_train = y_errors
 
     plt.scatter(X_train,y_errors)
-    plt.title('Data Generating Process With Outliers on Y')
+    plt.title('Data Generating Process With Extremes and Outliers')
     plt.show()
 
     # Adding Polynomial Features
@@ -70,7 +70,7 @@ class RegressionFramework:
         """
         plt.figure(figsize=(10, 5))
         plt.plot(x_org, y_org, '.', color='green', alpha=1)
-        plt.plot(x_test, self.prediction, '.', color='red', alpha=1, label=f'MSE: {self.mse}')
+        plt.plot(x_test, self.prediction, '+', color='red', alpha=1, label=f'MSE: {self.mse}')
         plt.title(title)
         plt.ylim(ylim)
         plt.xlim(xlim)
@@ -164,9 +164,9 @@ class HuberRegression(RegressionFramework):
                 self.args = (self.Xtr, self.ytr, d)
                 self.fit()
                 self.predict()
-                plt.plot(x_test, self.prediction, '.', alpha=1, label=f'Delta: {d} MSE: {self.mse}')
+                plt.plot(x_test, self.prediction, '+', alpha=1, label=f'Delta: {d} MSE: {self.mse}')
         else:
-            plt.plot(x_test, self.prediction, '.', color='red', alpha=1)
+            plt.plot(x_test, self.prediction, '+', color='red', alpha=1)
 
         plt.plot(x_org, y_org, '.', color='green', alpha=1)
         plt.title(title)
@@ -192,12 +192,12 @@ class QuantileRegression(RegressionFramework):
         ecr3 = np.identity(n)
         ecr4 = np.identity(n) * -1
         ecr = np.concatenate((ecr1, ecr2, ecr3, ecr4), axis=1)
-        return (ecr, y)
+        return ecr, y
 
     def _inequality_constr(self, X, y, n):
         icl = np.identity(n) * -1
         icr = np.zeros(n).reshape(-1, 1)
-        return (icl, icr)
+        return icl, icr
 
     def _objective(self, p, n, tau=.5, ):
         return np.concatenate((np.repeat(0, 2 * p), tau * np.repeat(1, n), (1 - tau) * np.repeat(1, n)))
@@ -216,33 +216,57 @@ class QuantileRegression(RegressionFramework):
         sol = linprog(self._objective(p, n, self.tau), A_ub, B_ub, A_eq, B_eq, method='interior-point')
         self.param_opt = sol.x[0:p] - sol.x[p:2 * p]
 
+    def plot_reg(self, title, x_test, x_org, y_org, ylim=(-2, 11), xlim=(-3, 3), tau_benchmark=True):
+        """
+        Plotting the Huber Regression with the option to vizualize multiple delta values
+        """
+        plt.figure(figsize=(10, 5))
+        if tau_benchmark:
+            for tau in [.1, .5, .8]:
+                self.tau = tau
+                self.fit()
+                self.predict()
+                plt.plot(x_test, self.prediction, '+', alpha=1, label=f'Tau: {tau} MSE: {self.mse}')
+        else:
+            plt.plot(x_test, self.prediction, '+', color='red', alpha=1)
+
+        plt.plot(x_org, y_org, '.', color='green', alpha=1)
+        plt.title(title)
+        plt.ylim(ylim)
+        plt.xlim(xlim)
+        plt.legend()
+        plt.show()
+
 
 # For Debugging
 if __name__ == '__main__':
     np.random.seed(42)
     X_train_poly, X_test_poly, y_errors_train, X_test, y_test, X = dgp()
 
-    # least_squares = LeastSquares(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test)
-    # least_squares.plot_loss(title='Least Squares Cost Function y = 0')
-    # least_squares.fit()
-    # least_squares.predict()
-    # least_squares.plot_reg(title='Least Squares', x_test=X_test, x_org=X, y_org=y_errors_train, xlim=None)
-    #
+    least_squares = LeastSquares(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test)
+    least_squares.plot_loss(title='Least Squares Cost Function y = 0')
+    least_squares.fit()
+    least_squares.predict()
+    least_squares.plot_reg(title='Least Squares Regression', x_test=X_test, x_org=X,
+                           y_org=y_errors_train, xlim=(-7, 7))
+
     least_squares = LeastDeviation(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test)
     least_squares.plot_loss(title='Least Deviation Cost Function y = 0')
     least_squares.fit()
     least_squares.predict()
-    least_squares.plot_reg(title='Least Deviation', x_test=X_test, x_org=X, y_org=y_errors_train, xlim=None)
-    #
-    # least_squares = HuberRegression(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test, delta=0.01)
-    # least_squares.plot_loss(title='Huber Loss Cost Function y = 0')
-    # least_squares.fit()
-    # least_squares.predict()
-    # least_squares.plot_reg(title='Huber Loss', x_test=X_test, x_org=X, y_org=y_errors_train, xlim=None)
+    least_squares.plot_reg(title='Least Deviation Regression', x_test=X_test, x_org=X, y_org=y_errors_train,
+                           xlim=(-7, 7))
+
+    least_squares = HuberRegression(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test, delta=0.01)
+    least_squares.plot_loss(title='Huber Loss Cost Function y = 0')
+    least_squares.fit()
+    least_squares.predict()
+    least_squares.plot_reg(title='Huber Loss Regression', x_test=X_test, x_org=X,
+                           y_org=y_errors_train, xlim=(-7, 7))
 
     quantile_reg = QuantileRegression(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test, tau=0.5)
     quantile_reg.fit()
     quantile_reg.predict()
-    quantile_reg.plot_reg(title='Quantile Regression', x_test=X_test, x_org=X, y_org=y_errors_train, xlim=None)
+    quantile_reg.plot_reg(title='Quantile Regression', x_test=X_test, x_org=X, y_org=y_errors_train, xlim=(-7, 7))
 
     print('hello world')
