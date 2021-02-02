@@ -1,6 +1,6 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from scipy.optimize import minimize
+from scipy.optimize import minimize, linprog
 
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from sklearn.preprocessing import PolynomialFeatures
@@ -11,12 +11,14 @@ def dgp(s=400):
     Data Generating Process a Gaussian RV transformed to sin
     We define an extreme set of outliers (every 3rd value = 10)
     """
-    X = np.random.normal(size=s)
+    # X = np.random.normal(size=s)
+    X = np.random.standard_t(df=4, size=s)
     y = np.sin(X)
     X = X[:, np.newaxis]
 
     # Test Data
-    X_test = np.random.normal(size=int(s/2))
+    # X_test = np.random.normal(size=int(s/2))
+    X_test = np.random.standard_t(df=4, size=int(s/2))
     y_test = np.sin(X_test)
     X_test = X_test[:, np.newaxis]
 
@@ -56,11 +58,11 @@ class RegressionFramework:
         """
         Produces Performance Measures based on a given prediction.
         """
-        self.mse = mean_squared_error(self.yte, self.prediction)
-        self.mae = mean_absolute_error(self.yte, self.prediction)
+        self.mse = round(mean_squared_error(self.yte, self.prediction), 2)
+        self.mae = round(mean_absolute_error(self.yte, self.prediction), 2)
         print(f'{self.name} Scores:')
-        print(f'Prediction MSE: {round(self.mse, 3)}')
-        print(f'Prediction MAE: {round(self.mae, 3)}')
+        print(f'Prediction MSE: {self.mse}')
+        print(f'Prediction MAE: {self.mae,}')
 
     def plot_reg(self, title, x_test, x_org, y_org, ylim=(-2, 11), xlim=(-3, 3)):
         """
@@ -68,10 +70,11 @@ class RegressionFramework:
         """
         plt.figure(figsize=(10, 5))
         plt.plot(x_org, y_org, '.', color='green', alpha=1)
-        plt.plot(x_test, self.prediction, '.', color='red', alpha=1)
+        plt.plot(x_test, self.prediction, '.', color='red', alpha=1, label=f'MSE: {self.mse}')
         plt.title(title)
         plt.ylim(ylim)
         plt.xlim(xlim)
+        plt.legend()
         plt.show()
 
     def plot_loss(self, title):
@@ -161,7 +164,7 @@ class HuberRegression(RegressionFramework):
                 self.args = (self.Xtr, self.ytr, d)
                 self.fit()
                 self.predict()
-                plt.plot(x_test, self.prediction, '.', alpha=1, label=f'Delta: {d}')
+                plt.plot(x_test, self.prediction, '.', alpha=1, label=f'Delta: {d} MSE: {self.mse}')
         else:
             plt.plot(x_test, self.prediction, '.', color='red', alpha=1)
 
@@ -173,27 +176,73 @@ class HuberRegression(RegressionFramework):
         plt.show()
 
 
+class QuantileRegression(RegressionFramework):
+    def __init__(self, Xtr, ytr, Xte, yte, tau=.5):
+        super().__init__(Xtr, ytr, Xte, yte)
+        self.name = 'Quantile Regression'  # Model name
+        self.tau = tau  # Delta, unique to Huber Loss Function
+
+    def _equality_constr(self, X, y, n):
+        """
+        Slack variables to separate positive and negative residuals and input them into the
+        program as equality constraint.
+        """
+        ecr1 = X
+        ecr2 = X * -1
+        ecr3 = np.identity(n)
+        ecr4 = np.identity(n) * -1
+        ecr = np.concatenate((ecr1, ecr2, ecr3, ecr4), axis=1)
+        return (ecr, y)
+
+    def _inequality_constr(self, X, y, n):
+        icl = np.identity(n) * -1
+        icr = np.zeros(n).reshape(-1, 1)
+        return (icl, icr)
+
+    def _objective(self, p, n, tau=.5, ):
+        return np.concatenate((np.repeat(0, 2 * p), tau * np.repeat(1, n), (1 - tau) * np.repeat(1, n)))
+
+    def fit(self):
+        p, n = self.Xtr.shape[1], self.ytr.shape[0]
+
+        # equality constraints
+        eq = self._equality_constr(self.Xtr, self.ytr, n)
+        A_eq, B_eq = eq[0], eq[1]
+
+        # inequality constraints
+        ub = self._inequality_constr(self.Xtr, self.ytr, A_eq.shape[1])
+        A_ub, B_ub = ub[0], ub[1]
+
+        sol = linprog(self._objective(p, n, self.tau), A_ub, B_ub, A_eq, B_eq, method='interior-point')
+        self.param_opt = sol.x[0:p] - sol.x[p:2 * p]
+
+
 # For Debugging
 if __name__ == '__main__':
-    np.random.seed(69)
+    np.random.seed(42)
     X_train_poly, X_test_poly, y_errors_train, X_test, y_test, X = dgp()
 
     # least_squares = LeastSquares(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test)
     # least_squares.plot_loss(title='Least Squares Cost Function y = 0')
     # least_squares.fit()
     # least_squares.predict()
-    # least_squares.plot_reg(title='Least Squares', x_test=X_test, x_org=X, y_org=y_errors_train)
+    # least_squares.plot_reg(title='Least Squares', x_test=X_test, x_org=X, y_org=y_errors_train, xlim=None)
     #
-    # least_squares = LeastDeviation(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test)
-    # least_squares.plot_loss(title='Least Deviation Cost Function y = 0')
-    # least_squares.fit()
-    # least_squares.predict()
-    # least_squares.plot_reg(title='Least Deviation', x_test=X_test, x_org=X, y_org=y_errors_train)
-
-    least_squares = HuberRegression(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test, delta=0.01)
-    least_squares.plot_loss(title='Huber Loss Cost Function y = 0')
+    least_squares = LeastDeviation(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test)
+    least_squares.plot_loss(title='Least Deviation Cost Function y = 0')
     least_squares.fit()
     least_squares.predict()
-    least_squares.plot_reg(title='Huber Loss', x_test=X_test, x_org=X, y_org=y_errors_train)
+    least_squares.plot_reg(title='Least Deviation', x_test=X_test, x_org=X, y_org=y_errors_train, xlim=None)
+    #
+    # least_squares = HuberRegression(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test, delta=0.01)
+    # least_squares.plot_loss(title='Huber Loss Cost Function y = 0')
+    # least_squares.fit()
+    # least_squares.predict()
+    # least_squares.plot_reg(title='Huber Loss', x_test=X_test, x_org=X, y_org=y_errors_train, xlim=None)
+
+    quantile_reg = QuantileRegression(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test, tau=0.5)
+    quantile_reg.fit()
+    quantile_reg.predict()
+    quantile_reg.plot_reg(title='Quantile Regression', x_test=X_test, x_org=X, y_org=y_errors_train, xlim=None)
 
     print('hello world')
