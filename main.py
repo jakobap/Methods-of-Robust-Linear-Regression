@@ -8,7 +8,7 @@ from sklearn.preprocessing import PolynomialFeatures
 
 def dgp(s=400):
     """
-    Data Generating Process a Gaussian RV transformed to sin
+    Data Generating Process a Student-t RV transformed to sin
     We define an extreme set of outliers (every 3rd value = 10)
     """
     # X = np.random.normal(size=s)
