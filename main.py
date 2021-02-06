@@ -63,6 +63,7 @@ class RegressionFramework:
         print(f'{self.name} Scores:')
         print(f'Prediction MSE: {self.mse}')
         print(f'Prediction MAE: {self.mae,}')
+        print(self.param_opt)
 
     def plot_reg(self, title, x_test, x_org, y_org, ylim=(-2, 11), xlim=(-3, 3)):
         """
@@ -250,18 +251,19 @@ if __name__ == '__main__':
     least_squares.plot_reg(title='Least Squares Regression', x_test=X_test, x_org=X,
                            y_org=y_errors_train, xlim=(-7, 7))
 
-    least_squares = LeastDeviation(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test)
-    least_squares.plot_loss(title='Least Deviation Cost Function y = 0')
-    least_squares.fit()
-    least_squares.predict()
-    least_squares.plot_reg(title='Least Deviation Regression', x_test=X_test, x_org=X, y_org=y_errors_train,
+    least_deviation = LeastDeviation(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test)
+    least_deviation.plot_loss(title='Least Deviation Cost Function y = 0')
+    least_deviation.fit()
+    least_deviation.predict()
+    least_deviation.plot_reg(title='Least Deviation Regression', x_test=X_test, x_org=X, y_org=y_errors_train,
                            xlim=(-7, 7))
 
-    least_squares = HuberRegression(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test, delta=0.01)
-    least_squares.plot_loss(title='Huber Loss Cost Function y = 0')
-    least_squares.fit()
-    least_squares.predict()
-    least_squares.plot_reg(title='Huber Loss Regression', x_test=X_test, x_org=X,
+
+    huber = HuberRegression(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test, delta=0.01)
+    huber.plot_loss(title='Huber Loss Cost Function y = 0')
+    huber.fit()
+    huber.predict()
+    huber.plot_reg(title='Huber Loss Regression', x_test=X_test, x_org=X,
                            y_org=y_errors_train, xlim=(-7, 7))
 
     quantile_reg = QuantileRegression(Xtr=X_train_poly, ytr=y_errors_train, Xte=X_test_poly, yte=y_test, tau=0.5)
